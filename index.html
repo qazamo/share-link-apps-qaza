@@ -32,54 +32,63 @@
 
     <script>
         // ISI MAKLUMAT SUPABASE KAU KAT SINI
-        const SUPABASE_URL = 'https://lvbukfjwowwmnkdlmakw.supabase.co';
-        const SUPABASE_KEY = 'sb_secret_-qYHoF5XsnFeMxMySV-JeA_McwLKBGN';
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const SUPABASE_URL = 'hhttps://lvbukfjwowwmnkdlmakw.supabase.co'; // Ganti dengan URL kau
+        const SUPABASE_KEY = 'sb_publishable_avWWEg703DcENqAi-fBAAA_AgV9WmRs'; // Ganti dengan Key kau
 
-        let userPoints = 5; // Kita bagi 5 point permulaan
+        // --- BAHAGIAN YANG KITA BETULKAN ---
+        // Kita guna destructuring supaya tak berlanggar nama variable
+        const { createClient } = supabase; 
+        const _supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+        // -----------------------------------
 
-        // Fungsi Papar Point
+        let userPoints = 5;
+
         function updateUI() {
             document.getElementById('pointDisplay').innerText = userPoints;
         }
 
-        // Fungsi Load Link dari Database
         async function loadLinks(platform) {
             const container = document.getElementById('linksContainer');
-            container.innerHTML = `<p class="text-center">Mencari link ${platform}...</p>`;
+            container.innerHTML = `<p class="text-center text-blue-500 animate-pulse">Mencari link ${platform.toUpperCase()}...</p>`;
 
-            const { data, error } = await supabase
+            // Guna _supabase (yang kita dah betulkan tadi)
+            const { data, error } = await _supabase
                 .from('links_pool')
                 .select('*')
                 .eq('platform', platform);
 
-            if (data.length === 0) {
-                container.innerHTML = `<p class="text-center text-red-500">Tiada link untuk kategori ini lagi.</p>`;
+            if (error) {
+                console.error("Error tarik data:", error);
+                container.innerHTML = `<p class="text-center text-red-500">Ada masalah teknikal.</p>`;
+                return;
+            }
+
+            if (!data || data.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-500 bg-white p-4 rounded-lg shadow-sm">Tiada link ${platform.toUpperCase()} buat masa ini. Jadilah orang pertama yang post!</p>`;
                 return;
             }
 
             container.innerHTML = '';
             data.forEach(link => {
                 const card = document.createElement('div');
-                card.className = "bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex justify-between items-center";
+                card.className = "bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition hover:shadow-md";
                 card.innerHTML = `
                     <div>
-                        <p class="font-bold text-blue-600">#${link.platform.toUpperCase()}</p>
-                        <p class="text-gray-800">${link.caption}</p>
+                        <span class="text-xs font-bold uppercase px-2 py-1 bg-blue-100 text-blue-600 rounded-md">${link.platform}</span>
+                        <p class="text-gray-800 mt-2 font-medium">${link.caption}</p>
+                        <p class="text-xs text-gray-400 mt-1">${link.url.substring(0, 30)}...</p>
                     </div>
-                    <button onclick="engageLink('${link.url}', '${link.id}')" class="bg-green-500 text-white px-4 py-2 rounded-lg font-bold">Support (+1pt)</button>
+                    <button onclick="engageLink('${link.url}', '${link.id}')" class="w-full md:w-auto bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-xl font-bold transition">Support (+1pt)</button>
                 `;
                 container.appendChild(card);
             });
         }
 
-        // Fungsi Bila User Klik Support
         function engageLink(url, linkId) {
             window.open(url, '_blank');
-            // Logik tambah point
             userPoints += 1;
             updateUI();
-            alert("Point ditambah! Pastikan anda benar-benar memberi engagement.");
+            alert("Point ditambah! Terima kasih sudi support.");
         }
 
         updateUI();
