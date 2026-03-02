@@ -211,9 +211,26 @@
         // === 5. FUNGSI SUPPORT & SUBMIT ===
         async function engageLink(url) {
             window.open(url, '_blank');
+            
+            // 1. Tambah point kat skrin dulu (bagi user nampak laju)
             userPoints += 1;
             updateUI();
-            await _supabase.from('profiles').update({ points: userPoints }).eq('id', currentUser.id);
+
+            // 2. SIMPAN KE DATABASE (Wajib ada await)
+            if (currentUser) {
+                const { error } = await _supabase
+                    .from('profiles')
+                    .update({ points: userPoints })
+                    .eq('id', currentUser.id);
+                
+                if (error) {
+                    console.error("Gagal simpan point ke DB:", error.message);
+                    // Kalau gagal, kita tolak balik point kat skrin supaya user tak keliru
+                    userPoints -= 1;
+                    updateUI();
+                    alert("Ops! Point tak dapat disimpan. Check internet atau login semula.");
+                }
+            }
         }
 
         async function submitLink() {
