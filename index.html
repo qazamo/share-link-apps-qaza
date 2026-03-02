@@ -272,6 +272,53 @@
             document.getElementById('pointDisplay').innerText = userPoints;
         }
 
+        // 1. Fungsi untuk Dengar Perubahan Data Secara Live
+        function setupRealtime() {
+            _supabase
+                .channel('schema-db-changes')
+                .on(
+                    'postgres_changes',
+                    {
+                        event: '*', // Dengar semua (INSERT, DELETE, UPDATE)
+                        schema: 'public',
+                        table: 'links_pool'
+                    },
+                    (payload) => {
+                        console.log('Ada perubahan data!', payload);
+                        
+                        // Jika ada link baru atau link kena delete, refresh senarai kat skrin
+                        // Kita ambil platform yang sedang aktif sekarang
+                        const activePlatform = document.querySelector('button.bg-blue-50')?.innerText.toLowerCase() || 'tiktok';
+                        
+                        // Auto-update senarai link & leaderboard tanpa refresh page
+                        loadLinks(activePlatform.replace('🔵 ', '').replace('⚫ ', '').replace('🟣 ', '').replace('🔴 ', '').trim());
+                        loadLeaderboard();
+                    }
+                )
+                .subscribe();
+        }
+
+        // 2. Kemas kini fungsi checkUser untuk panggil setupRealtime
+        async function checkUser() {
+            const { data: { user } } = await _supabase.auth.getUser();
+            if (user) {
+                currentUser = user;
+                const { data } = await _supabase.from('profiles').select('points').eq('id', user.id);
+
+                if (data && data.length > 0) {
+                    userPoints = data[0].points;
+                }
+                
+                document.getElementById('authArea').classList.add('hidden');
+                document.getElementById('appArea').classList.remove('hidden');
+                document.getElementById('userInfo').classList.remove('hidden');
+                
+                updateUI();
+                loadLeaderboard();
+                setupRealtime(); // <--- TAMBAH NI SUPAYA DIA MULA MENDENGAR
+            }
+        }
+
         // Mula Check User
         checkUser();
         
