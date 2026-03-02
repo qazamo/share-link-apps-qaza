@@ -3,94 +3,185 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ShareLink - SEO & Engagement</title>
+    <title>ShareLink - SEO & Engagement Pod</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        .hidden { display: none; }
+    </style>
 </head>
-<body class="bg-gray-100 font-sans">
+<body class="bg-slate-50 font-sans min-h-screen">
 
-    <nav class="bg-blue-600 p-4 text-white flex justify-between items-center shadow-lg">
-        <h1 class="text-xl font-bold">🚀 ShareLink</h1>
-        <div class="bg-blue-800 px-4 py-2 rounded-full font-bold">
-            Points: <span id="pointDisplay">Menunggu...</span>
+    <nav class="bg-indigo-600 p-4 text-white shadow-md">
+        <div class="max-w-4xl mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold tracking-tight">🚀 ShareLink</h1>
+            <div id="userInfo" class="flex items-center gap-3 hidden">
+                <span class="bg-indigo-800 px-3 py-1 rounded-full text-sm font-bold">
+                    Points: <span id="pointDisplay">0</span>
+                </span>
+                <button onclick="handleLogout()" class="text-xs bg-indigo-500 hover:bg-indigo-400 px-2 py-1 rounded">Logout</button>
+            </div>
         </div>
     </nav>
 
-    <div class="max-w-4xl mx-auto mt-8 p-4">
-        <h2 class="text-center text-gray-700 font-semibold mb-4 text-lg">Pilih Kategori Support:</h2>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <button onclick="loadLinks('facebook')" class="bg-white p-4 rounded-xl shadow hover:bg-blue-50 border-b-4 border-blue-500 font-bold">🔵 Facebook</button>
-            <button onclick="loadLinks('tiktok')" class="bg-white p-4 rounded-xl shadow hover:bg-gray-50 border-b-4 border-black font-bold">⚫ TikTok</button>
-            <button onclick="loadLinks('instagram')" class="bg-white p-4 rounded-xl shadow hover:bg-pink-50 border-b-4 border-pink-500 font-bold">🟣 Instagram</button>
-            <button onclick="loadLinks('youtube')" class="bg-white p-4 rounded-xl shadow hover:bg-red-50 border-b-4 border-red-500 font-bold">🔴 YouTube</button>
+    <div id="authArea" class="max-w-md mx-auto mt-20 p-8 bg-white rounded-2xl shadow-xl text-center">
+        <h2 class="text-2xl font-bold text-slate-800">Selamat Datang!</h2>
+        <p class="text-slate-500 mt-2 mb-6">Sila login atau daftar untuk mula kumpul point.</p>
+        <div class="space-y-4 text-left">
+            <div>
+                <label class="text-sm font-semibold">Email</label>
+                <input type="email" id="authEmail" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
+            <div>
+                <label class="text-sm font-semibold">Password</label>
+                <input type="password" id="authPass" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
+            <button onclick="handleAuth()" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg hover:bg-indigo-700 transition">Login / Daftar</button>
+        </div>
+    </div>
+
+    <div id="appArea" class="max-w-4xl mx-auto p-4 hidden">
+        
+        <div class="mt-6 p-6 bg-white rounded-2xl shadow-sm border border-slate-200">
+            <h3 class="font-bold text-slate-800 mb-4">Post Link Baru <span class="text-red-500 text-xs">(Kos: 5 Points)</span></h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input type="text" id="newLinkUrl" placeholder="URL Link (https://...)" class="p-3 border rounded-lg outline-none">
+                <select id="newLinkPlatform" class="p-3 border rounded-lg outline-none bg-white">
+                    <option value="tiktok">TikTok</option>
+                    <option value="facebook">Facebook</option>
+                    <option value="instagram">Instagram</option>
+                    <option value="youtube">YouTube</option>
+                </select>
+            </div>
+            <input type="text" id="newLinkCaption" placeholder="Caption SEO Pendek (Keywords)" class="w-full p-3 border rounded-lg mt-3 outline-none">
+            <button onclick="submitLink()" class="w-full bg-slate-800 text-white font-bold py-3 rounded-lg mt-4 hover:bg-slate-900 transition">Submit Link</button>
         </div>
 
-        <div id="linksContainer" class="mt-8 space-y-4">
-            <p class="text-center text-gray-500 italic">Klik kategori di atas untuk mula support.</p>
+        <div class="mt-10">
+            <h3 class="text-center font-bold text-slate-700 mb-4 text-lg">Pilih Kategori Support</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <button onclick="loadLinks('facebook')" class="bg-white p-4 rounded-xl shadow-sm border-b-4 border-blue-500 font-bold hover:bg-blue-50 transition">🔵 FB</button>
+                <button onclick="loadLinks('tiktok')" class="bg-white p-4 rounded-xl shadow-sm border-b-4 border-black font-bold hover:bg-slate-50 transition">⚫ TikTok</button>
+                <button onclick="loadLinks('instagram')" class="bg-white p-4 rounded-xl shadow-sm border-b-4 border-pink-500 font-bold hover:bg-pink-50 transition">🟣 IG</button>
+                <button onclick="loadLinks('youtube')" class="bg-white p-4 rounded-xl shadow-sm border-b-4 border-red-500 font-bold hover:bg-red-50 transition">🔴 YT</button>
+            </div>
+        </div>
+
+        <div id="linksContainer" class="mt-8 space-y-4 pb-20">
+            <p class="text-center text-slate-400 italic">Pilih kategori di atas untuk mula.</p>
         </div>
     </div>
 
     <script>
-        // 1. Masukkan URL & KEY (Pastikan PASTE betul-betul dalam tanda petik '')
-        const URL_KU = 'https://lvbukfjwowwmnkdlmakw.supabase.co';
-        const KEY_KU = 'sb_publishable_avWWEg703DcENqAi-fBAAA_AgV9WmRs';
+        // === KONFIGURASI SUPABASE ===
+        const SUPABASE_URL = 'https://lvbukfjwowwmnkdlmakw.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_avWWEg703DcENqAi-fBAAA_AgV9WmRs';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // 2. Setup Client (Guna cara paling basic supaya tak error)
-        const _supabase = supabase.createClient(URL_KU, KEY_KU);
+        let currentUser = null;
+        let userPoints = 0;
 
-        let userPoints = 5;
+        // 1. Cek Status User
+        async function checkUser() {
+            const { data: { user } } = await _supabase.auth.getUser();
+            if (user) {
+                currentUser = user;
+                const { data } = await _supabase.from('profiles').select('points').eq('id', user.id).single();
+                userPoints = data ? data.points : 0;
+                document.getElementById('authArea').classList.add('hidden');
+                document.getElementById('appArea').classList.remove('hidden');
+                document.getElementById('userInfo').classList.remove('hidden');
+                updateUI();
+            }
+        }
 
-        // 3. Fungsi Paparan
+        // 2. Handle Login & Pendaftaran Automatik
+        async function handleAuth() {
+            const email = document.getElementById('authEmail').value;
+            const password = document.getElementById('authPass').value;
+            if (!email || !password) return alert("Isi email dan password!");
+
+            let { data, error } = await _supabase.auth.signInWithPassword({ email, password });
+            
+            if (error) {
+                // Jika tak wujud, terus daftar
+                const { data: sData, error: sErr } = await _supabase.auth.signUp({ email, password });
+                if (sErr) return alert(sErr.message);
+                alert("Akaun dicipta! Sila klik Login sekali lagi.");
+            } else {
+                window.location.reload();
+            }
+        }
+
+        // 3. Ambil Link dari Database
+        async function loadLinks(platform) {
+            const container = document.getElementById('linksContainer');
+            container.innerHTML = `<div class="text-center p-10">Mencari link ${platform}...</div>`;
+
+            const { data, error } = await _supabase.from('links_pool').select('*').eq('platform', platform).order('created_at', { ascending: false });
+
+            if (!data || data.length === 0) {
+                container.innerHTML = `<div class="bg-white p-10 rounded-xl text-center border-2 border-dashed">Tiada link ${platform} lagi.</div>`;
+                return;
+            }
+
+            container.innerHTML = '';
+            data.forEach(item => {
+                const card = document.createElement('div');
+                card.className = "bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center";
+                card.innerHTML = `
+                    <div>
+                        <p class="text-xs font-bold text-indigo-600 uppercase tracking-widest">${item.platform}</p>
+                        <p class="font-bold text-slate-800 text-lg">${item.caption}</p>
+                    </div>
+                    <button onclick="engageLink('${item.url}')" class="bg-green-500 hover:bg-green-600 text-white px-5 py-2 rounded-lg font-bold transition">Support +1</button>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // 4. Proses Support (Dapat Point)
+        async function engageLink(url) {
+            window.open(url, '_blank');
+            userPoints += 1;
+            updateUI();
+            await _supabase.from('profiles').update({ points: userPoints }).eq('id', currentUser.id);
+        }
+
+        // 5. Submit Link Baru (Guna 5 Point)
+        async function submitLink() {
+            const url = document.getElementById('newLinkUrl').value;
+            const platform = document.getElementById('newLinkPlatform').value;
+            const caption = document.getElementById('newLinkCaption').value;
+
+            if (!url || !caption) return alert("Sila isi link dan caption!");
+            if (userPoints < 5) return alert("Point tak cukup! Kena ada 5 point.");
+
+            const { error } = await _supabase.from('links_pool').insert([
+                { user_id: currentUser.id, url: url, platform: platform, caption: caption }
+            ]);
+
+            if (!error) {
+                userPoints -= 5;
+                await _supabase.from('profiles').update({ points: userPoints }).eq('id', currentUser.id);
+                updateUI();
+                alert("Link berjaya di-post!");
+                location.reload();
+            } else {
+                alert("Gagal post link: " + error.message);
+            }
+        }
+
         function updateUI() {
             document.getElementById('pointDisplay').innerText = userPoints;
         }
 
-        // 4. Fungsi Ambil Data
-        async function loadLinks(platform) {
-            const container = document.getElementById('linksContainer');
-            container.innerHTML = `<p class="text-center text-blue-500 animate-pulse">Mencari link ${platform.toUpperCase()}...</p>`;
-
-            try {
-                const { data, error } = await _supabase
-                    .from('links_pool')
-                    .select('*')
-                    .eq('platform', platform);
-
-                if (error) throw error;
-
-                if (!data || data.length === 0) {
-                    container.innerHTML = `<p class="text-center text-gray-500 bg-white p-4 rounded-lg shadow-sm border border-dashed">Tiada link ${platform.toUpperCase()} lagi. Jom post link anda!</p>`;
-                    return;
-                }
-
-                container.innerHTML = '';
-                data.forEach(link => {
-                    const card = document.createElement('div');
-                    card.className = "bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition hover:shadow-md mb-4";
-                    card.innerHTML = `
-                        <div>
-                            <span class="text-xs font-bold uppercase px-2 py-1 bg-blue-100 text-blue-600 rounded-md">${link.platform}</span>
-                            <p class="text-gray-800 mt-2 font-medium">${link.caption}</p>
-                        </div>
-                        <button onclick="engageLink('${link.url}', '${link.id}')" class="w-full md:w-auto bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-xl font-bold transition">Support (+1pt)</button>
-                    `;
-                    container.appendChild(card);
-                });
-            } catch (err) {
-                console.error("Kesalahan:", err.message);
-                container.innerHTML = `<p class="text-center text-red-500">Gagal memuatkan data. Sila check URL Supabase kau.</p>`;
-            }
+        async function handleLogout() {
+            await _supabase.auth.signOut();
+            window.location.reload();
         }
 
-        function engageLink(url, linkId) {
-            window.open(url, '_blank');
-            userPoints += 1;
-            updateUI();
-            alert("Point ditambah! Terima kasih sudi support.");
-        }
-
-        // Jalankan fungsi awal
-        updateUI();
+        checkUser();
     </script>
 </body>
 </html>
