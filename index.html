@@ -82,39 +82,65 @@
     </div>
 
     <script>
-        // === KONFIGURASI SUPABASE ===
+        // === 1. KONFIGURASI (PASTIKAN URL & KEY BETUL) ===
         const SUPABASE_URL = 'https://lvbukfjwowwmnkdlmakw.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_avWWEg703DcENqAi-fBAAA_AgV9WmRs';
+        const ADMIN_EMAIL = 'saifuljtk@gmail.com'; // <--- TUKAR KE EMAIL KAU
+        
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         let currentUser = null;
         let userPoints = 0;
 
-        // 1. Cek Status User
+        // === 2. FUNGSI CEK USER & LEADERBOARD ===
         async function checkUser() {
             const { data: { user } } = await _supabase.auth.getUser();
             if (user) {
                 currentUser = user;
                 const { data } = await _supabase.from('profiles').select('points').eq('id', user.id).single();
                 userPoints = data ? data.points : 0;
+                
                 document.getElementById('authArea').classList.add('hidden');
                 document.getElementById('appArea').classList.remove('hidden');
                 document.getElementById('userInfo').classList.remove('hidden');
+                
                 updateUI();
+                loadLeaderboard();
             }
         }
 
-        // 2. Handle Login & Pendaftaran Automatik
+        async function loadLeaderboard() {
+            const { data, error } = await _supabase
+                .from('profiles')
+                .select('username, points')
+                .order('points', { ascending: false })
+                .limit(5);
+
+            const lbContainer = document.getElementById('leaderboardList');
+            if (error || !data) return;
+
+            lbContainer.innerHTML = '';
+            data.forEach((user, index) => {
+                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '👤';
+                const item = document.createElement('div');
+                item.className = "flex justify-between items-center p-2 border-b border-slate-100 last:border-0";
+                item.innerHTML = `
+                    <span class="text-sm font-medium text-slate-700">${medal} ${user.username.split('@')[0]}</span>
+                    <span class="text-xs font-bold bg-indigo-100 text-indigo-600 px-2 py-1 rounded">${user.points} pts</span>
+                `;
+                lbContainer.appendChild(item);
+            });
+        }
+
+        // === 3. FUNGSI AUTH & LOGOUT ===
         async function handleAuth() {
             const email = document.getElementById('authEmail').value;
             const password = document.getElementById('authPass').value;
             if (!email || !password) return alert("Isi email dan password!");
 
             let { data, error } = await _supabase.auth.signInWithPassword({ email, password });
-            
             if (error) {
-                // Jika tak wujud, terus daftar
-                const { data: sData, error: sErr } = await _supabase.auth.signUp({ email, password });
+                const { error: sErr } = await _supabase.auth.signUp({ email, password });
                 if (sErr) return alert(sErr.message);
                 alert("Akaun dicipta! Sila klik Login sekali lagi.");
             } else {
@@ -122,12 +148,21 @@
             }
         }
 
-        // 3. Ambil Link dari Database
+        async function handleLogout() {
+            await _supabase.auth.signOut();
+            window.location.reload();
+        }
+
+        // === 4. FUNGSI LINKS (LOAD & DELETE) ===
         async function loadLinks(platform) {
             const container = document.getElementById('linksContainer');
             container.innerHTML = `<div class="text-center p-10">Mencari link ${platform}...</div>`;
 
-            const { data, error } = await _supabase.from('links_pool').select('*').eq('platform', platform).order('created_at', { ascending: false });
+            const { data, error } = await _supabase
+                .from('links_pool')
+                .select('*')
+                .eq('platform', platform)
+                .order('created_at', { ascending: false });
 
             if (!data || data.length === 0) {
                 container.innerHTML = `<div class="bg-white p-10 rounded-xl text-center border-2 border-dashed">Tiada link ${platform} lagi.</div>`;
@@ -137,19 +172,33 @@
             container.innerHTML = '';
             data.forEach(item => {
                 const card = document.createElement('div');
-                card.className = "bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center";
+                card.className = "bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center mb-3";
+                
+                const isAdmin = currentUser && currentUser.email === ADMIN_EMAIL;
+                const deleteBtn = isAdmin ? `<button onclick="deleteLink('${item.id}')" class="text-red-500 hover:text-red-700 text-xs font-bold ml-4">🗑️ Delete</button>` : '';
+
                 card.innerHTML = `
-                    <div>
-                        <p class="text-xs font-bold text-indigo-600 uppercase tracking-widest">${item.platform}</p>
-                        <p class="font-bold text-slate-800 text-lg">${item.caption}</p>
+                    <div class="flex-1">
+                        <p class="text-[10px] font-bold text-indigo-600 uppercase tracking-widest">${item.platform}</p>
+                        <p class="font-bold text-slate-800 text-md">${item.caption}</p>
                     </div>
-                    <button onclick="engageLink('${item.url}')" class="bg-green-500 hover:bg-green-600 text-white px-5 py-2 rounded-lg font-bold transition">Support +1</button>
+                    <div class="flex items-center">
+                        <button onclick="engageLink('${item.url}')" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-sm transition">Support +1</button>
+                        ${deleteBtn}
+                    </div>
                 `;
                 container.appendChild(card);
             });
         }
 
-        // 4. Proses Support (Dapat Point)
+        async function deleteLink(id) {
+            if (!confirm("Kau serius nak delete link ni?")) return;
+            const { error } = await _supabase.from('links_pool').delete().eq('id', id);
+            if (error) alert("Error: " + error.message);
+            else location.reload();
+        }
+
+        // === 5. FUNGSI SUPPORT & SUBMIT ===
         async function engageLink(url) {
             window.open(url, '_blank');
             userPoints += 1;
@@ -157,7 +206,6 @@
             await _supabase.from('profiles').update({ points: userPoints }).eq('id', currentUser.id);
         }
 
-        // 5. Submit Link Baru (Guna 5 Point)
         async function submitLink() {
             const url = document.getElementById('newLinkUrl').value;
             const platform = document.getElementById('newLinkPlatform').value;
@@ -185,51 +233,8 @@
             document.getElementById('pointDisplay').innerText = userPoints;
         }
 
-        async function handleLogout() {
-            await _supabase.auth.signOut();
-            window.location.reload();
-        }
-
+        // Mula Check User
         checkUser();
-
-    // 1. Fungsi Ambil Data Leaderboard
-        async function loadLeaderboard() {
-            const { data, error } = await _supabase
-                .from('profiles')
-                .select('username, points')
-                .order('points', { ascending: false })
-                .limit(5);
-
-            const lbContainer = document.getElementById('leaderboardList');
-            if (error || !data) return;
-
-            lbContainer.innerHTML = '';
-            data.forEach((user, index) => {
-                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '👤';
-                const item = document.createElement('div');
-                item.className = "flex justify-between items-center p-2 border-b border-slate-100 last:border-0";
-                item.innerHTML = `
-                    <span class="text-sm font-medium text-slate-700">${medal} ${user.username.split('@')[0]}</span>
-                    <span class="text-xs font-bold bg-indigo-100 text-indigo-600 px-2 py-1 rounded">${user.points} pts</span>
-                `;
-                lbContainer.appendChild(item);
-            });
-        }
-
-        // 2. Kemas kini fungsi checkUser supaya panggil leaderboard
-        async function checkUser() {
-            const { data: { user } } = await _supabase.auth.getUser();
-            if (user) {
-                currentUser = user;
-                const { data } = await _supabase.from('profiles').select('points').eq('id', user.id).single();
-                userPoints = data ? data.points : 0;
-                document.getElementById('authArea').classList.add('hidden');
-                document.getElementById('appArea').classList.remove('hidden');
-                document.getElementById('userInfo').classList.remove('hidden');
-                updateUI();
-                loadLeaderboard(); // <--- TAMBAH NI
-            }
-        }
         
     </script>
 </body>
