@@ -272,31 +272,50 @@
         }
 
         // === 5. FUNGSI SUPPORT & SUBMIT ===
-        async function engageLink(url, linkId, taskType) {
-    // 1. Cek duplicate macam biasa
-    const { data: sedia_ada } = await _supabase.from('link_clicks').select('*').eq('user_id', currentUser.id).eq('link_id', linkId).eq('task_type', taskType);
-    if (sedia_ada && sedia_ada.length > 0) return alert("Dah buat!");
+       async function engageLink(url, linkId, taskType) {
+            // 1. Cek duplicate
+            const { data: sedia_ada } = await _supabase.from('link_clicks').select('*').eq('user_id', currentUser.id).eq('link_id', linkId).eq('task_type', taskType);
+            if (sedia_ada && sedia_ada.length > 0) return alert("Dah buat!");
 
-    window.open(url, '_blank');
+            // 2. UNIVERSAL SHARE LOGIC
+            if (taskType === 'share') {
+                if (navigator.share) {
+                    // Pakai sistem Share asal phone/PC
+                    try {
+                        await navigator.share({
+                            title: 'Support Link Ini!',
+                            text: `Jom tengok link ni: `, // Caption pendek SEO
+                            url: url,
+                        });
+                        console.log('Berjaya share!');
+                    } catch (err) {
+                        console.log('User cancel share atau error:', err);
+                        return; // Jangan bagi point kalau dia cancel awal (optional)
+                    }
+                } else {
+                    // Fallback kalau browser lama (Desktop lama/Browser pelik)
+                    const shareText = encodeURIComponent(`Jom tengok: ${url}`);
+                    window.open(`https://api.whatsapp.com/send?text=${shareText}`, '_blank');
+                }
+            } else {
+                window.open(url, '_blank'); // View & Comment
+            }
 
-    // 2. Simpan klik record
-    const { error: clickErr } = await _supabase.from('link_clicks').insert([{ user_id: currentUser.id, link_id: linkId, task_type: taskType }]);
+            // 3. Simpan rekod & Bagi Point (Sama macam sebelum ni)
+            const { error: clickError } = await _supabase.from('link_clicks').insert([{ user_id: currentUser.id, link_id: linkId, task_type: taskType }]);
 
-    if (!clickErr) {
-        // 3. Update counter dalam links_pool secara dinamik
-        const updateField = `count_${taskType}`;
-        const { data: currentLink } = await _supabase.from('links_pool').select(updateField).eq('id', linkId).single();
-        
-        let newCount = currentLink[updateField] + 1;
-        
-        await _supabase.from('links_pool').update({ [updateField]: newCount }).eq('id', linkId);
+            if (!clickError) {
+                const updateField = `count_${taskType}`;
+                const { data: currentLink } = await _supabase.from('links_pool').select(updateField).eq('id', linkId).single();
+                let newCount = (currentLink[updateField] || 0) + 1;
+                await _supabase.from('links_pool').update({ [updateField]: newCount }).eq('id', linkId);
 
-        // 4. Beri point kepada user yang klik
-        userPoints += 1;
-        updateUI();
-        await _supabase.from('profiles').update({ points: userPoints }).eq('id', currentUser.id);
-    }
-}
+                userPoints += 1;
+                updateUI();
+                await _supabase.from('profiles').update({ points: userPoints }).eq('id', currentUser.id);
+                alert(`Mantap! +1 Point untuk Share.`);
+            }
+        }
 
         async function submitLink() {
     const url = document.getElementById('newLinkUrl').value;
