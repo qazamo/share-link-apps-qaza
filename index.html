@@ -195,9 +195,9 @@
         }
 
         // === 4. FUNGSI LINKS (LOAD & DELETE) ===
-        async function loadLinks(platform) {
+       async function loadLinks(platform) {
             const container = document.getElementById('linksContainer');
-            container.innerHTML = `<div class="text-center p-10">Mencari link ${platform}...</div>`;
+            container.innerHTML = `<div class="text-center p-10 text-slate-500">Mencari link ${platform}...</div>`;
 
             const { data, error } = await _supabase
                 .from('links_pool')
@@ -213,18 +213,50 @@
             container.innerHTML = '';
             data.forEach(item => {
                 const card = document.createElement('div');
-                card.className = "bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center mb-3";
+                card.className = "bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4";
                 
                 const isAdmin = currentUser && currentUser.email === ADMIN_EMAIL;
-                const deleteBtn = isAdmin ? `<button onclick="deleteLink('${item.id}')" class="text-red-500 hover:text-red-700 text-xs font-bold ml-4">🗑️ Delete</button>` : '';
+                const deleteBtn = isAdmin ? `<button onclick="deleteLink('${item.id}')" class="text-red-500 hover:text-red-700 text-[10px] font-bold mt-2 md:mt-0">🗑️ DELETE</button>` : '';
+
+                // --- LOGIK BUTANG IKUT KUOTA ---
+                let buttonsHtml = '';
+
+                // Butang View
+                if (item.count_view < item.target_view) {
+                    buttonsHtml += `
+                        <button onclick="engageLink('${item.url}', '${item.id}', 'view')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg font-bold text-xs transition flex items-center gap-1">
+                            👁️ ${item.count_view}/${item.target_view} <span class="opacity-70">+1</span>
+                        </button>`;
+                }
+
+                // Butang Comment
+                if (item.count_comment < item.target_comment) {
+                    buttonsHtml += `
+                        <button onclick="engageLink('${item.url}', '${item.id}', 'comment')" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg font-bold text-xs transition flex items-center gap-1">
+                            💬 ${item.count_comment}/${item.target_comment} <span class="opacity-70">+1</span>
+                        </button>`;
+                }
+
+                // Butang Share
+                if (item.count_share < item.target_share) {
+                    buttonsHtml += `
+                        <button onclick="engageLink('${item.url}', '${item.id}', 'share')" class="bg-pink-600 hover:bg-pink-700 text-white px-3 py-2 rounded-lg font-bold text-xs transition flex items-center gap-1">
+                            🚀 ${item.count_share}/${item.target_share} <span class="opacity-70">+1</span>
+                        </button>`;
+                }
+
+                // Kalau semua task dah penuh
+                if (buttonsHtml === '') {
+                    buttonsHtml = '<span class="text-xs font-bold text-slate-400 italic bg-slate-100 px-3 py-1 rounded-full">✅ SEMUA TASK SELESAI</span>';
+                }
 
                 card.innerHTML = `
                     <div class="flex-1">
-                        <p class="text-[10px] font-bold text-indigo-600 uppercase tracking-widest">${item.platform}</p>
-                        <p class="font-bold text-slate-800 text-md">${item.caption}</p>
+                        <p class="text-[10px] font-black text-indigo-600 uppercase tracking-tighter mb-1">${item.platform}</p>
+                        <p class="font-bold text-slate-800 text-md leading-tight">${item.caption}</p>
                     </div>
-                    <div class="flex items-center">
-                        <button onclick="engageLink('${item.url}')" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-sm transition">Support +1</button>
+                    <div class="flex flex-wrap items-center gap-2">
+                        ${buttonsHtml}
                         ${deleteBtn}
                     </div>
                 `;
@@ -240,51 +272,66 @@
         }
 
         // === 5. FUNGSI SUPPORT & SUBMIT ===
-        async function engageLink(url) {
-            window.open(url, '_blank');
-            
-            // Tambah point lokal
-            userPoints += 1;
-            updateUI();
+        async function engageLink(url, linkId, taskType) {
+    // 1. Cek duplicate macam biasa
+    const { data: sedia_ada } = await _supabase.from('link_clicks').select('*').eq('user_id', currentUser.id).eq('link_id', linkId).eq('task_type', taskType);
+    if (sedia_ada && sedia_ada.length > 0) return alert("Dah buat!");
 
-            // Update ke database
-            if (currentUser) {
-                const { error } = await _supabase
-                    .from('profiles')
-                    .update({ points: userPoints })
-                    .eq('id', currentUser.id);
-                
-                if (error) {
-                    console.error("Gagal simpan:", error.message);
-                } else {
-                    console.log("Point berjaya disimpan!");
-                    loadLeaderboard(); // Refresh leaderboard terus
-                }
-            }
-        }
+    window.open(url, '_blank');
+
+    // 2. Simpan klik record
+    const { error: clickErr } = await _supabase.from('link_clicks').insert([{ user_id: currentUser.id, link_id: linkId, task_type: taskType }]);
+
+    if (!clickErr) {
+        // 3. Update counter dalam links_pool secara dinamik
+        const updateField = `count_${taskType}`;
+        const { data: currentLink } = await _supabase.from('links_pool').select(updateField).eq('id', linkId).single();
+        
+        let newCount = currentLink[updateField] + 1;
+        
+        await _supabase.from('links_pool').update({ [updateField]: newCount }).eq('id', linkId);
+
+        // 4. Beri point kepada user yang klik
+        userPoints += 1;
+        updateUI();
+        await _supabase.from('profiles').update({ points: userPoints }).eq('id', currentUser.id);
+    }
+}
 
         async function submitLink() {
-            const url = document.getElementById('newLinkUrl').value;
-            const platform = document.getElementById('newLinkPlatform').value;
-            const caption = document.getElementById('newLinkCaption').value;
+    const url = document.getElementById('newLinkUrl').value;
+    const platform = document.getElementById('newLinkPlatform').value;
+    const caption = document.getElementById('newLinkCaption').value;
+    
+    // Ambil nilai kuota
+    const tView = parseInt(document.getElementById('numView').value) || 0;
+    const tComment = parseInt(document.getElementById('numComment').value) || 0;
+    const tShare = parseInt(document.getElementById('numShare').value) || 0;
+    
+    const totalCost = tView + tComment + tShare;
 
-            if (!url || !caption) return alert("Sila isi link dan caption!");
-            if (userPoints < 5) return alert("Point tak cukup! Kena ada 5 point.");
+    if (!url || !caption) return alert("Sila isi link dan caption!");
+    if (totalCost <= 0) return alert("Sila letak sekurang-kurangnya 1 kuota task!");
+    if (userPoints < totalCost) return alert(`Point tak cukup! Kos: ${totalCost}, Point kau: ${userPoints}`);
 
-            const { error } = await _supabase.from('links_pool').insert([
-                { user_id: currentUser.id, url: url, platform: platform, caption: caption }
-            ]);
-
-            if (!error) {
-                userPoints -= 5;
-                await _supabase.from('profiles').update({ points: userPoints }).eq('id', currentUser.id);
-                updateUI();
-                alert("Link berjaya di-post!");
-                location.reload();
-            } else {
-                alert("Gagal post link: " + error.message);
-            }
+    const { error } = await _supabase.from('links_pool').insert([
+        { 
+            user_id: currentUser.id, 
+            url, platform, caption, 
+            target_view: tView, 
+            target_comment: tComment, 
+            target_share: tShare,
+            is_active: true 
         }
+    ]);
+
+    if (!error) {
+        userPoints -= totalCost;
+        await _supabase.from('profiles').update({ points: userPoints }).eq('id', currentUser.id);
+        alert("Link Berjaya Di-post!");
+        location.reload();
+    }
+}
 
         function updateUI() {
             document.getElementById('pointDisplay').innerText = userPoints;
