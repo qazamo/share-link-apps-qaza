@@ -72,6 +72,11 @@
                     <option value="youtube">YouTube</option>
                 </select>
             </div>
+            <div class="grid grid-cols-3 gap-2 mt-3">
+                <label class="flex items-center gap-1 text-xs"><input type="checkbox" id="taskView" checked disabled> View (+1)</label>
+                <label class="flex items-center gap-1 text-xs"><input type="checkbox" id="taskComment"> Comment (+1)</label>
+                <label class="flex items-center gap-1 text-xs"><input type="checkbox" id="taskShare"> Share (+1)</label>
+            </div>
             <input type="text" id="newLinkCaption" placeholder="Caption SEO Pendek (Keywords)" class="w-full p-3 border rounded-lg mt-3 outline-none">
             <button onclick="submitLink()" class="w-full bg-slate-800 text-white font-bold py-3 rounded-lg mt-4 hover:bg-slate-900 transition">Submit Link</button>
         </div>
