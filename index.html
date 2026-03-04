@@ -72,11 +72,24 @@
                     <option value="youtube">YouTube</option>
                 </select>
             </div>
-            <div class="grid grid-cols-3 gap-2 mt-3">
-                <label class="flex items-center gap-1 text-xs"><input type="checkbox" id="taskView" checked disabled> View (+1)</label>
-                <label class="flex items-center gap-1 text-xs"><input type="checkbox" id="taskComment"> Comment (+1)</label>
-                <label class="flex items-center gap-1 text-xs"><input type="checkbox" id="taskShare"> Share (+1)</label>
-            </div>
+            <div class="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+    <p class="text-xs font-bold text-slate-500 mb-3 text-center uppercase tracking-wider">Set Kuota Task (1 Task = 1 Point)</p>
+    <div class="grid grid-cols-3 gap-3">
+        <div class="text-center">
+            <label class="block text-[10px] font-bold">👁️ VIEW</label>
+            <input type="number" id="numView" value="5" min="0" class="w-full p-2 border rounded text-center text-sm">
+        </div>
+        <div class="text-center">
+            <label class="block text-[10px] font-bold">💬 KOMEN</label>
+            <input type="number" id="numComment" value="0" min="0" class="w-full p-2 border rounded text-center text-sm">
+        </div>
+        <div class="text-center">
+            <label class="block text-[10px] font-bold">🚀 SHARE</label>
+            <input type="number" id="numShare" value="0" min="0" class="w-full p-2 border rounded text-center text-sm">
+        </div>
+    </div>
+    <p id="totalCostLabel" class="text-center text-xs mt-3 text-indigo-600 font-bold italic">Kos Keselamatan: 5 Points</p>
+</div>
             <input type="text" id="newLinkCaption" placeholder="Caption SEO Pendek (Keywords)" class="w-full p-3 border rounded-lg mt-3 outline-none">
             <button onclick="submitLink()" class="w-full bg-slate-800 text-white font-bold py-3 rounded-lg mt-4 hover:bg-slate-900 transition">Submit Link</button>
         </div>
